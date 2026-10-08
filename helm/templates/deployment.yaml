@@ -1,0 +1,111 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "k8s-bridge.fullname" . }}-controller-manager
+  namespace: {{ include "k8s-bridge.namespace" . }}
+  labels:
+    control-plane: controller-manager
+    app.kubernetes.io/component: controller
+    {{- include "k8s-bridge.labels" . | nindent 4 }}
+spec:
+  # NOTE: .spec.selector is immutable once a Deployment exists. Keep it limited
+  # to the stable selector labels; never add app.kubernetes.io/component or
+  # app.kubernetes.io/version here, or `helm upgrade` of an existing release
+  # will fail.
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+      {{- include "k8s-bridge.selectorLabels" . | nindent 6 }}
+  replicas: {{ .Values.replicaCount }}
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        control-plane: controller-manager
+        app.kubernetes.io/component: controller
+        {{- include "k8s-bridge.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "k8s-bridge.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - command:
+        - /manager
+        args:
+          {{- if .Values.manager.leaderElection.enabled }}
+          - --leader-elect
+          {{- end }}
+          - --health-probe-bind-address={{ .Values.manager.healthProbeBindAddress }}
+          {{- if .Values.metrics.enabled }}
+          - --metrics-bind-address={{ .Values.manager.metricsBindAddress }}
+          {{- else }}
+          - --metrics-bind-address=0
+          {{- end }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        name: manager
+        ports:
+        - containerPort: {{ trimPrefix ":" .Values.manager.healthProbeBindAddress }}
+          name: health
+          protocol: TCP
+        {{- if .Values.metrics.enabled }}
+        - containerPort: {{ trimPrefix ":" .Values.manager.metricsBindAddress }}
+          name: metrics
+          protocol: TCP
+        {{- end }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: health
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: health
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+        volumeMounts: []
+      volumes: []
+      terminationGracePeriodSeconds: 10
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

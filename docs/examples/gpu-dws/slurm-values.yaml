@@ -1,0 +1,54 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+clusterName: slurm
+
+configFiles:
+  gres.conf: |
+    AutoDetect=nvidia
+
+controller:
+  slurmctld:
+    env:
+      - name: WORKLOAD_MIXING_PARTITIONS
+        value: "k8s-gpu"
+  extraConf: |-
+    SelectType=select/cons_tres
+    MaxNodeCount=64
+    GresTypes=gpu
+    ReturnToService=2
+    SchedulerParameters=ignore_constraint_validation
+    EnforcePartLimits=NO
+    JobSubmitPlugins=job_submit/lua
+    CliFilterPlugins=cli_filter/lua
+    CliFilterParameters=workload_mixing_partitions=k8s-gpu
+    NodeSet=k8s_nodes Feature=k8s_dynamic
+    PartitionName=k8s-gpu Nodes=k8s_nodes Default=NO State=UP MaxTime=UNLIMITED
+  persistence:
+    enabled: false
+
+restapi:
+  replicas: 1
+
+nodesets:
+  slinky:
+    enabled: false
+
+loginsets:
+  slinky:
+    enabled: true
+    replicas: 1
+    service:
+      spec:
+        type: ClusterIP

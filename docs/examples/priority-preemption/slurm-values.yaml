@@ -1,0 +1,46 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+controller:
+  slurmctld:
+    env:
+      - name: WORKLOAD_MIXING_PARTITIONS
+        value: "prod,batch"
+  extraConf: |-
+    SchedulerParameters=ignore_constraint_validation
+    JobSubmitPlugins=job_submit/lua
+    CliFilterPlugins=cli_filter/lua
+    CliFilterParameters=workload_mixing_partitions=prod,batch
+    JobRequeue=1
+    SlurmdTimeout=60
+    NodeSet=k8s_nodes Feature=k8s_dynamic
+    PartitionName=prod Nodes=k8s_nodes
+    PartitionName=batch Nodes=k8s_nodes
+  persistence:
+    enabled: false
+
+restapi:
+  replicas: 1
+
+nodesets:
+  slinky:
+    enabled: false
+
+loginsets:
+  slinky:
+    enabled: true
+    replicas: 1
+    service:
+      spec:
+        type: ClusterIP
