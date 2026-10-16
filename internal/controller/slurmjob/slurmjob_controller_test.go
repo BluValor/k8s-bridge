@@ -1051,56 +1051,54 @@ func TestCancelJobWithComment_PartConfigUnavailable422_DoesNotLogError(t *testin
 	}
 }
 
-func TestReconcile_ExplicitHold_SuspendsExistingJobSet(t *testing.T) {
-	js := newReconTestJobSet().
-		withSuspend(false).
-		build()
-
-	job := newReconTestJob().
-		withJobState(slurmapi.V0044JobInfoJobStatePENDING).
-		withHold(true).
-		withStateReason("JobHeldUser").
-		build()
-
-	env := newReconcileTestEnv(t,
-		withExtraObjects(js),
-		withPendingSlurmJobs(job),
-	)
-
-	_, err := env.reconcile()
-	if err != nil {
-		t.Fatalf("Reconcile failed: %v", err)
+func TestReconcile_ExplicitHold_DoesNotMutateExistingJobSetOrUnhold(t *testing.T) {
+	tests := []struct {
+		name        string
+		stateReason string
+		comment     string
+	}{
+		{
+			name:        "user hold without auto-hold marker",
+			stateReason: ReasonJobHeldUser,
+		},
+		{
+			name:        "admin hold",
+			stateReason: ReasonJobHeldAdmin,
+		},
+		{
+			name:        "admin hold with auto-hold marker",
+			stateReason: ReasonJobHeldAdmin,
+			comment:     AutoHoldMarker,
+		},
 	}
 
-	env.verifyJobSetSuspended(true, true)
-	env.verifyNoSlurmUpdates()
-}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			js := newReconTestJobSet().
+				withSuspend(false).
+				build()
 
-func TestReconcile_ExplicitHold_Removed_ResumesJobSet(t *testing.T) {
-	js := newReconTestJobSet().
-		withAnnotations(map[string]string{
-			AnnotationSuspendedBySlurmHold: ValueTrue,
-		}).
-		withSuspend(true).
-		build()
+			job := newReconTestJob().
+				withJobState(slurmapi.V0044JobInfoJobStatePENDING).
+				withHold(true).
+				withStateReason(tc.stateReason).
+				withComment(tc.comment).
+				build()
 
-	job := newReconTestJob().
-		withJobState(slurmapi.V0044JobInfoJobStatePENDING).
-		withHold(false).
-		withStateReason("None").
-		build()
+			env := newReconcileTestEnv(t,
+				withExtraObjects(js),
+				withPendingSlurmJobs(job),
+			)
 
-	env := newReconcileTestEnv(t,
-		withExtraObjects(js),
-		withPendingSlurmJobs(job),
-	)
+			before := env.getJobSet()
+			if _, err := env.reconcile(); err != nil {
+				t.Fatalf("Reconcile failed: %v", err)
+			}
 
-	_, err := env.reconcile()
-	if err != nil {
-		t.Fatalf("Reconcile failed: %v", err)
+			env.verifyJobSetUnchanged(before)
+			env.verifyNoSlurmUpdates()
+		})
 	}
-
-	env.verifyJobSetSuspended(false, false)
 }
 
 func TestReconcile_SuspendedJobSet_DoesNotReleaseHold(t *testing.T) {
@@ -1159,7 +1157,7 @@ func TestReconcile_Preempted_PreservesJobSet(t *testing.T) {
 	}
 }
 
-func TestReconcile_SuspendedJobSet_WithoutAnnotation_NotResumed(t *testing.T) {
+func TestReconcile_SuspendedJobSet_UnheldJob_NotResumedByBridge(t *testing.T) {
 	js := newReconTestJobSet().
 		withSuspend(true).
 		build()
@@ -1175,12 +1173,13 @@ func TestReconcile_SuspendedJobSet_WithoutAnnotation_NotResumed(t *testing.T) {
 		withPendingSlurmJobs(job),
 	)
 
-	_, err := env.reconcile()
-	if err != nil {
+	before := env.getJobSet()
+	if _, err := env.reconcile(); err != nil {
 		t.Fatalf("Reconcile failed: %v", err)
 	}
 
-	env.verifyJobSetSuspended(true, false)
+	env.verifyJobSetUnchanged(before)
+	env.verifyNoSlurmUpdates()
 }
 
 func TestReconcile_ReleaseHold_PreservesExistingComment(t *testing.T) {
