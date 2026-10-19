@@ -39,6 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	jobsetv1alpha2 "sigs.k8s.io/jobset/api/jobset/v1alpha2"
@@ -171,8 +172,63 @@ func (r *SlurmJobReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			mgr.GetCache(),
 			&jobsetv1alpha2.JobSet{},
 			handler.TypedEnqueueRequestsFromMapFunc(r.mapJobSetToRequest),
+			jobSetWatchPredicate(),
 		),
 	)
+}
+
+func jobSetWatchPredicate() predicate.TypedPredicate[*jobsetv1alpha2.JobSet] {
+	return predicate.TypedFuncs[*jobsetv1alpha2.JobSet]{
+		CreateFunc:  shouldReconcileJobSetCreate,
+		UpdateFunc:  shouldReconcileJobSetUpdate,
+		DeleteFunc:  shouldReconcileJobSetDelete,
+		GenericFunc: shouldReconcileJobSetGeneric,
+	}
+}
+
+func shouldReconcileJobSetCreate(e event.TypedCreateEvent[*jobsetv1alpha2.JobSet]) bool {
+	js := e.Object
+	if js == nil {
+		return false
+	}
+	return isJobSetTerminal(js) ||
+		isJobSetDeleting(js) ||
+		!isJobSetSuspended(js)
+}
+
+func shouldReconcileJobSetUpdate(e event.TypedUpdateEvent[*jobsetv1alpha2.JobSet]) bool {
+	oldJS, newJS := e.ObjectOld, e.ObjectNew
+	if oldJS == nil || newJS == nil || isJobSetTerminal(oldJS) {
+		return false
+	}
+	if isJobSetTerminal(newJS) {
+		return true
+	}
+	if !isJobSetDeleting(oldJS) && isJobSetDeleting(newJS) {
+		return true
+	}
+	return isJobSetSuspended(oldJS) != isJobSetSuspended(newJS)
+}
+
+func shouldReconcileJobSetDelete(e event.TypedDeleteEvent[*jobsetv1alpha2.JobSet]) bool {
+	return e.Object != nil && !isJobSetTerminal(e.Object)
+}
+
+func shouldReconcileJobSetGeneric(event.TypedGenericEvent[*jobsetv1alpha2.JobSet]) bool {
+	return false
+}
+
+func isJobSetTerminal(js *jobsetv1alpha2.JobSet) bool {
+	_, isTerminal := terminalJobSetStatus(js)
+	return isTerminal
+}
+
+func isJobSetDeleting(js *jobsetv1alpha2.JobSet) bool {
+	return js != nil && !js.DeletionTimestamp.IsZero()
+}
+
+func isJobSetSuspended(js *jobsetv1alpha2.JobSet) bool {
+	return js != nil && ptr.Deref(js.Spec.Suspend, false)
 }
 
 func (r *SlurmJobReconciler) mapJobSetToRequest(ctx context.Context, js *jobsetv1alpha2.JobSet) []reconcile.Request {
@@ -819,7 +875,7 @@ func CountActiveJobSets(ctx context.Context, c client.Client, wm *k8sbridgev1alp
 			continue
 		}
 
-		if _, isTerminal := terminalJobSetStatus(js); !isTerminal {
+		if !isJobSetTerminal(js) {
 			count++
 		}
 	}
