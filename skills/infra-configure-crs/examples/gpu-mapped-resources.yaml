@@ -1,0 +1,48 @@
+# GPU WorkloadMixing CR with Combined Typed and Untyped GPU mappedResources
+# Reference: docs/gpu-workloads.md, docs/gke/gpu-dws-workloads.md, docs/examples/gpu/workloadmixing-gpu.yaml, docs/examples/gpu-dws/workloadmixing-gpu.yaml
+# Use this manifest instead of docs/examples/gpu*/workloadmixing-gpu.yaml when users submit BOTH:
+#   - Typed GPU requests (--gres=gpu:nvidia_l4:1 or --gpus=nvidia_l4:1)
+#   - Untyped GPU requests (--gres=gpu:1 or --gpus=1)
+# For GKE DWS Flex-start (docs/examples/gpu-dws/workloadmixing-gpu.yaml), replace nvidia.com/gpu.product: NVIDIA-L4 with:
+#   cloud.google.com/gke-accelerator: nvidia-l4
+#   cloud.google.com/gke-flex-start: "true"
+# and add the cloud.google.com/gke-queued: "true" (Equal, NoSchedule) toleration under podTemplate.spec.tolerations.
+apiVersion: k8s-bridge.x-k8s.io/v1alpha1
+kind: WorkloadMixing
+metadata:
+  name: gpu
+  namespace: slurm
+spec:
+  controllerRef:
+    name: slurm
+  partitionsMapping:
+    - partition: k8s-gpu
+      localQueue: gpu-queue
+      dynamicNodeFeature: k8s_dynamic
+  mappedResources:
+    # 1. Typed GPU entry (matches --gres=gpu:nvidia_l4:1 or --gpus=nvidia_l4:1)
+    - resourceName: gpu
+      resourceType: nvidia_l4
+      k8sResourceName: nvidia.com/gpu
+      nodeSelectors:
+        nvidia.com/gpu.product: NVIDIA-L4
+    # 2. Untyped GPU entry (matches --gres=gpu:1 or --gpus=1)
+    - resourceName: gpu
+      k8sResourceName: nvidia.com/gpu
+      nodeSelectors:
+        nvidia.com/gpu.product: NVIDIA-L4
+  podTemplate:
+    spec:
+      restartPolicy: Never
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: slurmd
+          image: ghcr.io/slinkyproject/slurmd:26.05-ubuntu26.04
+          securityContext:
+            privileged: true
+          env:
+            - name: LD_LIBRARY_PATH
+              value: /usr/local/nvidia/lib64
