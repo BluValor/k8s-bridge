@@ -92,7 +92,7 @@ Apply the `WorkloadMixing` CR for your scenario from Section 1 (delete any previ
 *(Stop here and proceed to Section 4 Verification when configuring partitions or CRs. For live single-field fixes on `WorkloadMixing`, use `kubectl -n slurm patch workloadmixing <name> --type=merge -p '...'` for scalars/objects or `--type=json -p '[{"op":"add","path":"/spec/partitionsMapping/0/<field>","value":"..."}]'` for fields inside a list item, and align your manifest. Run Step 4 only when asked to remove the CRs and Slurm release.)*
 
 ### Step 4: CR & Slurm Release Teardown (Run ONLY When Requested to Remove CRs)
-Get user confirmation before deleting CRs or uninstalling releases. Because managed `JobSet` objects carry the `k8s-bridge.x-k8s.io/slurm-node-cleanup` finalizer, delete all `WorkloadMixing` CRs first and wait until `k8s-bridge` has finalized and removed all managed `JobSet` objects before uninstalling the `slurm` Helm release, Kueue/`ComputeClass` CRs, or base operators via `infra-deploy-stack` (see [docs/quickstart.md](../../docs/quickstart.md) `## 7. Cleanup`, [docs/existing-infra.md](../../docs/existing-infra.md) `## 6. Cleanup safely`, and [docs/gke/ccc.md](../../docs/gke/ccc.md) `## 8. Cleanup`):
+Get user confirmation before deleting CRs or uninstalling releases. Because managed `JobSet` objects carry the `k8s-bridge.x-k8s.io/slurm-node-cleanup` finalizer, delete all `WorkloadMixing` CRs first and wait until `k8s-bridge` has finalized and removed all managed `JobSet` objects before uninstalling the `slurm` Helm release, Kueue/`ComputeClass` CRs, or base operators via `infra-deploy-stack` (matching the cleanup section of your selected scenario guide in `docs/`):
 
 ```bash
 kubectl -n slurm delete workloadmixing --all --ignore-not-found
