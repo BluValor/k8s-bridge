@@ -18,14 +18,14 @@ Before running or modifying E2E suites, verify:
 - **Test mode:**
   - **Local Kind CPU E2E (`test/e2e/`):** Requires `docker`, `kubectl`, and `go` (`make` installs `kind` `v0.27.0` into `./bin/kind`, and `BeforeSuite` applies vendored manifests from `test/e2e/testdata/`).
   - **GKE GPU E2E (`test/e2e/gpu/`):** Requires `gcloud`, `kubectl`, `docker`, `go`, and a `.env` file or environment variables configuring `GCP_PROJECT`, `GCP_ZONE`, and `GPU_ACCELERATOR_TYPE`.
-- Read [references/e2e-env-variables.md](references/e2e-env-variables.md) for all `.env` and Makefile variables, including the `GPU_ACCELERATOR_TYPE` discrepancy between `Makefile` and `gke-gpu-cluster-setup.sh`.
+- Read [references/e2e-env-variables.md](references/e2e-env-variables.md) for all `.env` and Makefile variables.
 
 ---
 
 ## 2. Guardrails
 
 - **Confirmation gate for GKE GPU cluster creation:** `make test-e2e-gpu` and `make setup-infra-gpu` create billable GKE clusters and GPU node pools via `test/e2e/infra/gpu-cluster-setup.sh`. Obtain user confirmation before running them.
-- **Set `GPU_ACCELERATOR_TYPE=nvidia-l4` in `.env` for GKE GPU tests:** `Makefile` defaults `GPU_ACCELERATOR_TYPE ?= nvidia-tesla-t4` (`n1-standard-4`), whereas `test/e2e/infra/gke-gpu-cluster-setup.sh`, `test/e2e/testdata/workloadmixing_gpu.yaml`, and `test/e2e/gpu/gpu_test.go` require `nvidia-l4` (`g2-standard-4` with `nvidia.com/gpu.product: NVIDIA-L4`). Set `GPU_ACCELERATOR_TYPE=nvidia-l4` in `.env` before running `make test-e2e-gpu`.
+- **Verify `GPU_ACCELERATOR_TYPE` (`nvidia-l4` default) for GKE GPU tests:** Both `Makefile` and `test/e2e/infra/gke-gpu-cluster-setup.sh` default `GPU_ACCELERATOR_TYPE` to `nvidia-l4` (`g2-standard-4`), matching `test/e2e/testdata/workloadmixing_gpu.yaml` and `test/e2e/gpu/gpu_test.go`.
 - **Do not delete dynamic `slurmd` pods with `--force --grace-period=0` in E2E cleanup:** Force-deleting `slurmd` pods skips `PreStop` node deregistration and allows containers to re-register stale dynamic nodes in `slurmctld`, causing subsequent specs to fail with `BadConstraints`. Use `--grace-period=5 --wait=true` (`test/utils/slurm.go` `ResetSlurmAndK8sState`).
 - **Reload Lua `ConfigMap` objects when iterating on `hack/*.lua` in an existing Kind cluster:** In `BeforeSuite`, `SetupSlinkySlurm` (`test/utils/slurm.go`) creates `ConfigMap/slurm-job-submit-lua` and `ConfigMap/slurm-cli-filter-lua` from `hack/job_submit.lua` and `hack/cli_filter.lua`. `test/e2e/testdata/slurm_cluster.yaml` mounts these `ConfigMap` objects, while `test/e2e/testdata/slurm_login.yaml` defines `slurm-login` with test user `foo` (UID `2000`).
 

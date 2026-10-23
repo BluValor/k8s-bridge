@@ -24,7 +24,7 @@
 | `GCP_PROJECT` | *(none)* | `gcloud config get-value project` | GCP project ID used by `test/e2e/infra/gke-gpu-cluster-setup.sh` and `gke-gpu-cluster-cleanup.sh`. |
 | `GCP_ZONE` | `us-central1-a` | `us-central1-a` | GCP compute zone for the cluster and GPU nodes. |
 | `GPU_CLUSTER_NAME` | `k8s-bridge-gpu-e2e` | `k8s-bridge-gpu-e2e` | GKE cluster name. |
-| `GPU_ACCELERATOR_TYPE` | `nvidia-tesla-t4` | `nvidia-l4` | **Discrepancy:** Set `GPU_ACCELERATOR_TYPE=nvidia-l4` in `.env` to prevent `Makefile` from overriding the script with `nvidia-tesla-t4`. |
+| `GPU_ACCELERATOR_TYPE` | `nvidia-l4` | `nvidia-l4` | GPU accelerator provisioned on GKE (`g2-standard-4` for `nvidia-l4`). |
 | `GPU_ACCELERATOR_COUNT` | `1` | `1` | GPUs attached per node. |
 | `GPU_NODE_COUNT` | `1` | `1` | Number of GPU nodes provisioned in the node pool. |
 | `GPU_TEST_TIMEOUT` | `45m` | N/A | Timeout passed to `go test -tags=e2e_gpu ./test/e2e/gpu/`. |
