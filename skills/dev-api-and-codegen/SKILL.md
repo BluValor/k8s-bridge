@@ -26,7 +26,7 @@ Before modifying API schemas, RBAC markers, or chart templates, or running a pre
   - Controller RBAC markers: `internal/controller/workloadmixing/workloadmixing_controller.go`, `internal/controller/slurmclientsync/slurmclient_controller.go`, `internal/controller/slurmjob/slurmjob_controller.go`
   - Kustomize bases & samples: `config/crd/`, `config/rbac/`, `config/manager/`, `config/default/`, `config/prometheus/`, `config/samples/`
   - Helm chart & example YAMLs: `helm/Chart.yaml`, `helm/values.yaml`, `helm/crds/k8s-bridge.x-k8s.io_workloadmixings.yaml`, `helm/templates/`, `docs/examples/`
-- Read [references/kubebuilder-markers.md](references/kubebuilder-markers.md) for validation and RBAC marker syntax, and read [references/parity-checklist.md](references/parity-checklist.md) for the pre-PR source-to-derived parity matrix and known `docs/examples/` discrepancies.
+- Read [references/kubebuilder-markers.md](references/kubebuilder-markers.md) for validation and RBAC marker syntax, and read [references/parity-checklist.md](references/parity-checklist.md) for the pre-PR source-to-derived parity matrix.
 
 ---
 
@@ -91,7 +91,7 @@ Compare the Kustomize bases in `config/`, the Helm chart in `helm/`, and the exa
 2. **If manager CLI flags or environment variables changed in `cmd/main.go`:**
    - Update `config/manager/manager.yaml` (Kustomize deployment args).
    - Update `helm/templates/deployment.yaml` and `helm/values.yaml` (note: `helm/templates/deployment.yaml` templates `--leader-elect`, `--health-probe-bind-address`, `--metrics-bind-address`, and `--zap-log-level={{ .Values.manager.logLevel }}` without an `extraArgs` helper).
-3. **If CRD fields changed or before submitting a PR:** Audit `config/samples/k8s-bridge_v1alpha1_workloadmixing.yaml` and all `WorkloadMixing` manifests in `docs/examples/` against `api/v1alpha1/workloadmixing_types.go`. Check for unknown fields and repository discrepancies listed in [references/parity-checklist.md](references/parity-checklist.md).
+3. **If CRD fields changed or before submitting a PR:** Audit `config/samples/k8s-bridge_v1alpha1_workloadmixing.yaml` and all `WorkloadMixing` manifests in `docs/examples/` against `api/v1alpha1/workloadmixing_types.go` (see [references/parity-checklist.md](references/parity-checklist.md)).
 4. **If `./VERSION` changed:** Run `make version-sync` to synchronize `helm/Chart.yaml` (`version` & `appVersion`), `config/manager/kustomization.yaml` (`newTag`), `README.md`, `helm/README.md`, `docs/quickstart.md`, and `docs/existing-infra.md`.
 
 ---
