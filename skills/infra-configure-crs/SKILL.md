@@ -25,8 +25,8 @@ description: >-
 | **Existing Kueue / Slurm Infra** | [docs/existing-infra.md](../../docs/existing-infra.md) (Steps 2, 3, 5, 6) | Existing Kueue queues (`docs/existing-infra.md` Step 2) | `docs/existing-infra.md` Step 5 (`name: slurm-workload-mixing`) |
 | **GKE Custom Compute Classes (CCC)** | [docs/gke/ccc.md](../../docs/gke/ccc.md) (Steps 3–8) | `docs/examples/ccc/computeclass.yaml` + `docs/examples/ccc/kueue-resources.yaml` | `docs/examples/quickstart/workloadmixing.yaml` (`name: default`) |
 | **Priority & Preemption (`prod` / `batch`)** | [docs/priorities-and-preemption.md](../../docs/priorities-and-preemption.md) (Steps 1–5) | `docs/examples/priority-preemption/kueue-resources.yaml` | `docs/examples/priority-preemption/workloadmixing-priority.yaml` (`name: priority`) |
-| **Pre-Provisioned GPU Workloads** | [docs/gpu-workloads.md](../../docs/gpu-workloads.md) (Steps 1–5) | `docs/examples/gpu/kueue-resources.yaml` (convert `v1beta1` -> `v1beta2`) | `docs/examples/gpu/workloadmixing-gpu.yaml` (or [examples/gpu-mapped-resources.yaml](examples/gpu-mapped-resources.yaml) for typed + untyped GPU requests; `name: gpu`) |
-| **GKE DWS Flex-Start GPU Workloads** | [docs/gke/gpu-dws-workloads.md](../../docs/gke/gpu-dws-workloads.md) (Steps 3–7) | `docs/examples/gpu-dws/kueue-resources.yaml` (convert `v1beta1` -> `v1beta2`) | `docs/examples/gpu-dws/workloadmixing-gpu.yaml` (or [examples/gpu-mapped-resources.yaml](examples/gpu-mapped-resources.yaml) customized with DWS labels/tolerations; `name: gpu`) |
+| **Pre-Provisioned GPU Workloads** | [docs/gpu-workloads.md](../../docs/gpu-workloads.md) (Steps 1–5) | `docs/examples/gpu/kueue-resources.yaml` | `docs/examples/gpu/workloadmixing-gpu.yaml` (or [examples/gpu-mapped-resources.yaml](examples/gpu-mapped-resources.yaml) for typed + untyped GPU requests; `name: gpu`) |
+| **GKE DWS Flex-Start GPU Workloads** | [docs/gke/gpu-dws-workloads.md](../../docs/gke/gpu-dws-workloads.md) (Steps 3–7) | `docs/examples/gpu-dws/kueue-resources.yaml` | `docs/examples/gpu-dws/workloadmixing-gpu.yaml` (or [examples/gpu-mapped-resources.yaml](examples/gpu-mapped-resources.yaml) customized with DWS labels/tolerations; `name: gpu`) |
 
 *(Upstream CR references: [Kueue ResourceFlavor](https://kueue.sigs.k8s.io/docs/concepts/resource_flavor/), [Kueue ClusterQueue](https://kueue.sigs.k8s.io/docs/concepts/cluster_queue/), [Kueue LocalQueue](https://kueue.sigs.k8s.io/docs/concepts/local_queue/), [Kueue WorkloadPriorityClass](https://kueue.sigs.k8s.io/docs/concepts/workload_priority_class/), [Slurm slurm.conf](https://slurm.schedmd.com/slurm.conf.html), [Slurm GRES](https://slurm.schedmd.com/gres.html).)*
 
@@ -55,12 +55,9 @@ Create the `slurm` namespace and apply the Kueue CRs (`ResourceFlavor`, `Cluster
 
 ```bash
 kubectl create namespace slurm --dry-run=client -o yaml | kubectl apply -f -
-# For Base CPU, Priority & Preemption, or GKE CCC:
 kubectl apply -f <SCENARIO_KUEUE_RESOURCES_YAML>
 # If using GKE CCC (docs/gke/ccc.md Steps 3-4), also apply ComputeClass:
 # kubectl apply -f docs/examples/ccc/computeclass.yaml
-# For Pre-Provisioned GPU or GKE DWS GPU (which use v1beta1 in docs/examples/gpu*/):
-# sed 's|kueue.x-k8s.io/v1beta1|kueue.x-k8s.io/v1beta2|g' <SCENARIO_KUEUE_RESOURCES_YAML> | kubectl apply -f -
 ```
 
 - **For GKE DWS Flex-start GPUs ([docs/gke/gpu-dws-workloads.md](../../docs/gke/gpu-dws-workloads.md) Step 3):** Ensure `ResourceFlavor` (`gpu-flavor`) sets `nodeLabels` (`cloud.google.com/gke-accelerator: nvidia-l4`, `cloud.google.com/gke-flex-start: "true"`). It must also tolerate `nvidia.com/gpu` (`Exists`) and `cloud.google.com/gke-queued: "true"` (`Equal`), without creating a Kueue `ProvisioningRequestConfig`.

@@ -91,7 +91,7 @@ Compare the Kustomize bases in `config/`, the Helm chart in `helm/`, and the exa
 2. **If manager CLI flags or environment variables changed in `cmd/main.go`:**
    - Update `config/manager/manager.yaml` (Kustomize deployment args).
    - Update `helm/templates/deployment.yaml` and `helm/values.yaml` (note: `helm/templates/deployment.yaml` templates `--leader-elect`, `--health-probe-bind-address`, `--metrics-bind-address`, and `--zap-log-level={{ .Values.manager.logLevel }}` without an `extraArgs` helper).
-3. **If CRD fields changed or before submitting a PR:** Audit `config/samples/k8s-bridge_v1alpha1_workloadmixing.yaml` and all `WorkloadMixing` manifests in `docs/examples/` against `api/v1alpha1/workloadmixing_types.go`. Check for unknown fields and Kueue API versions listed in [references/parity-checklist.md](references/parity-checklist.md).
+3. **If CRD fields changed or before submitting a PR:** Audit `config/samples/k8s-bridge_v1alpha1_workloadmixing.yaml` and all `WorkloadMixing` manifests in `docs/examples/` against `api/v1alpha1/workloadmixing_types.go`. Check for unknown fields and repository discrepancies listed in [references/parity-checklist.md](references/parity-checklist.md).
 4. **If `./VERSION` changed:** Run `make version-sync` to synchronize `helm/Chart.yaml` (`version` & `appVersion`), `config/manager/kustomization.yaml` (`newTag`), `README.md`, `helm/README.md`, `docs/quickstart.md`, and `docs/existing-infra.md`.
 
 ---
