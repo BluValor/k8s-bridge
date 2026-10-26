@@ -44,7 +44,7 @@ description: >-
   - `controller.extraConf` must include `SchedulerParameters=ignore_constraint_validation` so `slurmctld` accepts `Constraints=k8s-id-<jobID>` when `k8s-bridge` releases the hold.
 - **Mount both Lua scripts on every `helm install`/`upgrade slurm`:** Pass `--set-file 'configFiles.job_submit\.lua=hack/job_submit.lua'` and `--set-file 'configFiles.cli_filter\.lua=hack/cli_filter.lua'`.
 - **Specify a valid `slurmd` image in `WorkloadMixing.spec.podTemplate`:** Omitting `podTemplate` causes `k8s-bridge` to fall back to `"placeholder-image"`, which fails with `ImagePullBackOff`.
-- **Define both typed and untyped GPU `mappedResources` entries if users submit both `--gres=gpu:<type>:1` and `--gpus=1`:** `docs/examples/gpu/workloadmixing-gpu.yaml` and `docs/examples/gpu-dws/workloadmixing-gpu.yaml` only define `resourceType: nvidia_l4`. Because `JobSetTranslator` matches `(resourceName, resourceType)`, untyped `--gpus=1` or `--gres=gpu:1` jobs fail with `Translation failed: missing GRES mapping for gpu:` unless an untyped entry (`resourceType` omitted) is also present (see [examples/gpu-mapped-resources.yaml](examples/gpu-mapped-resources.yaml)).
+- **Define both typed and untyped GPU `mappedResources` entries if users submit both `--gres=gpu:<type>:1` and `--gpus=1` (only `resourceName: "gpu"` is translated by `translator.go`):** `docs/examples/gpu/workloadmixing-gpu.yaml` and `docs/examples/gpu-dws/workloadmixing-gpu.yaml` only define `resourceType: nvidia_l4`. Because `JobSetTranslator` matches `(resourceName, resourceType)`, untyped `--gpus=1` or `--gres=gpu:1` jobs fail with `Translation failed: missing GRES mapping for gpu:` unless an untyped entry (`resourceType` omitted) is also present (see [examples/gpu-mapped-resources.yaml](examples/gpu-mapped-resources.yaml)).
 
 ---
 
@@ -61,6 +61,7 @@ kubectl apply -f <SCENARIO_KUEUE_RESOURCES_YAML>
 ```
 
 - **For GKE DWS Flex-start GPUs ([docs/gke/gpu-dws-workloads.md](../../docs/gke/gpu-dws-workloads.md) Step 3):** Ensure `ResourceFlavor` (`gpu-flavor`) sets `nodeLabels` (`cloud.google.com/gke-accelerator: nvidia-l4`, `cloud.google.com/gke-flex-start: "true"`). It must also tolerate `nvidia.com/gpu` (`Exists`) and `cloud.google.com/gke-queued: "true"` (`Equal`), without creating a Kueue `ProvisioningRequestConfig`.
+- **Revert & `ResourceFlavor` deletion hygiene:** Use `kubectl replace -f` when restoring baseline Kueue or `WorkloadMixing` CR manifests (`kubectl apply -f` retains fields added via `patch`). Before deleting or recreating an immutable `ResourceFlavor` (e.g. `topologyName`), delete or repoint referencing `ClusterQueue`s so `kueue.x-k8s.io/resource-in-use` clears cleanly (never manually strip Kueue finalizers).
 
 ### Step 2: Install or Upgrade the Slinky `slurm` Cluster with Partition & Lua Plugin Config
 Select the `slurm-values.yaml` for your scenario (`docs/examples/quickstart/slurm-values.yaml`, `docs/examples/priority-preemption/slurm-values.yaml`, `docs/examples/gpu/slurm-values.yaml`, or `docs/examples/gpu-dws/slurm-values.yaml`), or merge their settings when combining features:
@@ -79,7 +80,7 @@ helm upgrade --install slurm oci://ghcr.io/slinkyproject/charts/slurm \
 ```
 
 - **Drain before `helm upgrade slurm` or Slinky `NodeSet` changes:** With `persistence.enabled: false` (default in examples), `helm upgrade slurm` or adding/deleting a Slinky `NodeSet` restarts `slurm-controller-0` and wipes in-memory jobs and node state; drain or cancel active jobs and wait for managed `JobSet` objects to finalize first (`ops-cleanup-state`).
-- **After upgrading `slurm.conf` or Lua scripts:** If `GresTypes` or `SelectType` changed, restart the controller (`kubectl -n slurm delete pod slurm-controller-0`). Delete the login pod (`kubectl -n slurm delete pod -l app.kubernetes.io/name=login` — Slinky's `LoginSet` controller reverts `rollout restart`) so it refreshes `/run/slurm/conf/`, re-create any `useradd` test users, and verify with `scontrol show config | grep -iE 'GresTypes|EnforcePartLimits|SelectType'`.
+- **After upgrading `slurm.conf` or Lua scripts:** If `GresTypes` or `SelectType` changed (also `MaxNodeCount`; not changeable via `scontrol`), restart the controller (`kubectl -n slurm delete pod slurm-controller-0`). Delete the login pod (`kubectl -n slurm delete pod -l app.kubernetes.io/name=login` — Slinky's `LoginSet` controller reverts `rollout restart`) so it refreshes `/run/slurm/conf/`, re-create any `useradd` test users, and verify with `scontrol show config | grep -iE 'GresTypes|EnforcePartLimits|SelectType'`.
 - **Immutable `clusterName` across example files:** If upgrading an existing release between `quickstart`/`ccc`/`priority-preemption` and `gpu`/`gpu-dws` values fails on immutable `ClusterName`, pass `--set clusterName=<live-value>` (`null` if `kubectl -n slurm get controller -o jsonpath='{..clusterName}'` is empty).
 
 ### Step 3: Apply the `WorkloadMixing` CR
@@ -90,6 +91,8 @@ Apply the `WorkloadMixing` CR for your scenario from Section 1 (delete any previ
 - **GKE DWS Flex-Start GPU:** `kubectl apply -f docs/examples/gpu-dws/workloadmixing-gpu.yaml` (`name: gpu`; see [docs/gke/gpu-dws-workloads.md](../../docs/gke/gpu-dws-workloads.md) Step 5). If users also submit untyped (`--gpus=1`) GPU requests, add the untyped `mappedResources` entry from [examples/gpu-mapped-resources.yaml](examples/gpu-mapped-resources.yaml).
 
 *(Stop here and proceed to Section 4 Verification when configuring partitions or CRs. For live single-field fixes on `WorkloadMixing`, use `kubectl -n slurm patch workloadmixing <name> --type=merge -p '...'` for scalars/objects or `--type=json -p '[{"op":"add","path":"/spec/partitionsMapping/0/<field>","value":"..."}]'` for fields inside a list item, and align your manifest. Run Step 4 only when asked to remove the CRs and Slurm release.)*
+
+- **`podTemplate` customization & mutation rules:** Only `slurmd` `cpu`/`memory` requests are overwritten; static `limits` must be `>=` max job requests (or a namespace `LimitRange` whose `default`/`max` `>=` the `2048Mi*cpu` floor); sidecar and extra requests (e.g. `ephemeral-storage`) are additive and must be in `ClusterQueue` `coveredResources`; setting `/etc/slurm` `volumeMounts` or `--conf-server` `args` disables automatic key/controller injection. `WorkloadMixing` edits apply only to newly created `JobSet`s (cancel and resubmit held/wedged jobs).
 
 ### Step 4: CR & Slurm Release Teardown (Run ONLY When Requested to Remove CRs)
 Get user confirmation before deleting CRs or uninstalling releases. Because managed `JobSet` objects carry the `k8s-bridge.x-k8s.io/slurm-node-cleanup` finalizer, delete all `WorkloadMixing` CRs first and wait until `k8s-bridge` has finalized and removed all managed `JobSet` objects before uninstalling the `slurm` Helm release, Kueue/`ComputeClass` CRs, or base operators via `infra-deploy-stack` (matching the cleanup section of your selected scenario guide in `docs/`):

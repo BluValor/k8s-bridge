@@ -73,8 +73,8 @@ Before editing Go controller or translator packages, verify:
 When changing how a Slurm job translates into a `JobSet`:
 1. **Partition & Replicas (`resolveReplicas`):** Require a single mapped partition. Resolve `replicas` from `node=<N>` in `job.TresReqStr` first, falling back to `job.NodeCount.Number` (`tasksPerNode = job.TasksPerNode.Number` or `ceil(Tasks / replicas)`).
 2. **Resource Calculation (`resolvePodResources`):**
-   - Resolve GPUs from `TresPerNode`, `TresPerTask * tasksPerNode`, or `TresPerJob / replicas` (must divide with remainder 0; reject mixed GPU types). Match `(ResourceName: "gpu", ResourceType: <type>)` in `wmSpec.MappedResources`.
-   - Calculate CPU (`CpusPerTask * tasksPerNode`, or `gpuRequest * CpusPerTres`, or `1 * tasksPerNode`) and Memory (`max(MemoryPerNode, MemoryPerCpu * cpu, MemoryPerTres * gpuRequest)`, fallback `2048 * cpu` MiB).
+   - Resolve GPUs from `TresPerNode`, `TresPerTask * tasksPerNode`, or `TresPerJob / replicas` (must divide with remainder 0; reject mixed GPU types). Match `(ResourceName: "gpu", ResourceType: <type>)` in `wmSpec.MappedResources` (`GRESGPU` is currently hardcoded).
+   - Calculate CPU (`CpusPerTask * tasksPerNode` [note: `slurmrestd` v0.0.44 sets `CpusPerTask=1` when `--ntasks` is set], else `gpuRequest * CpusPerTres`, else `1 * tasksPerNode`) and Memory (`max(MemoryPerNode, MemoryPerCpu * cpu, MemoryPerTres * gpuRequest, 2048 * cpu)` MiB floor).
    - Overwrite `slurmd` container `Requests` (CPU, Memory, GPU) and GPU `Limits` while preserving `podTemplate` CPU/memory `Limits` and non-Slurm resources.
 3. **Container & `JobSet` Wiring (`buildJobSet`):**
    - Mount `controller.Spec.SlurmKeyRef` at `/etc/slurm/slurm.key` (`0600`).

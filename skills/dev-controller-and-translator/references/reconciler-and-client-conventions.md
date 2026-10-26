@@ -47,7 +47,7 @@ err := slurmClient.Delete(ctx, &slurmclienttypes.V0044Node{
 | `app.kubernetes.io/managed-by` | `JobSet`, Pod | `"k8s-bridge"` |
 | `app.kubernetes.io/component` | `JobSet`, Pod | `"jobset"` on `JobSet`; `"worker"` on Pod |
 | `k8s-bridge.x-k8s.io/slurm-job-id` | `JobSet`, Pod | Slurm job ID string (e.g. `"1"`) |
-| `k8s-bridge.x-k8s.io/slurm-job-name` | `JobSet`, Pod | Sanitized Slurm job name (`[a-z0-9_.-]`, max 63 chars) |
+| `k8s-bridge.x-k8s.io/slurm-job-name` | `JobSet`, Pod | Sanitized Slurm job name (`[a-z0-9_.-]`, max 63 chars; lossy, omitted if empty, not unique — select by `slurm-job-id`) |
 | `k8s-bridge.x-k8s.io/slurm-partition` | `JobSet` | Slurm partition name |
 | `kueue.x-k8s.io/queue-name` | `JobSet` | Mapped `LocalQueue` name from `partitionsMapping` |
 | `kueue.x-k8s.io/priority-class` | `JobSet` | Mapped `WorkloadPriorityClass` name (when non-empty) |

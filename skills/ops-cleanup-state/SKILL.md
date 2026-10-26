@@ -46,7 +46,7 @@ After user confirmation, cancel the target Slurm job (or all jobs for a full res
 kubectl -n slurm exec slurm-controller-0 -c slurmctld -- scancel <JOB_ID>
 
 # Option B: All jobs on bridged partition(s) (or omit -p to cancel all jobs in Slurm queue)
-kubectl -n slurm exec slurm-controller-0 -c slurmctld -- sh -c 'squeue -h -o "%i" | xargs -r scancel'
+kubectl -n slurm exec slurm-controller-0 -c slurmctld -- sh -c 'squeue -a -h -o "%i" | xargs -r scancel'
 ```
 
 ### Step 2: Delete `JobSet` Object(s) with Foreground Cascading Deletion
@@ -62,7 +62,7 @@ kubectl -n slurm delete jobset --all \
   --cascade=foreground --wait=true --timeout=60s
 ```
 
-If `k8s-bridge` was uninstalled or cannot be restored (if it was only scaled to `0`, scale it back up first so it finalizes nodes automatically) and a `JobSet` is stuck in `Terminating`, remove only `k8s-bridge.x-k8s.io/slurm-node-cleanup` (so `jobset.x-k8s.io/jobset-controller` still cleans up child `Jobs`) and then run Step 4:
+If `k8s-bridge` is running and a `JobSet` is stuck in `Terminating` (or leaked after job completion), check if the `JobSet` lost its `k8s-bridge.x-k8s.io/slurm-job-id` label or `WorkloadMixing` `ownerReferences` (with current `WorkloadMixing` `uid`) and restore them so `k8s-bridge` finalizes it; if `JobSet` has only `finalizers: ["foregroundDeletion"]`, `k8s-bridge` is already done — inspect child `Job`/`Pod` `.metadata.finalizers` and remove only orphaned foreign finalizers (never remove `foregroundDeletion` or `batch.kubernetes.io/job-tracking`). If `k8s-bridge` was uninstalled or cannot be restored (if it was only scaled to `0`, scale it back up first) and a `JobSet` is stuck in `Terminating`, remove only `k8s-bridge.x-k8s.io/slurm-node-cleanup` (so `jobset.x-k8s.io/jobset-controller` still cleans up child `Jobs`) and then run Step 4:
 
 ```bash
 kubectl get jobset <JOBSET_NAME> -n slurm -o json \
