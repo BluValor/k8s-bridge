@@ -59,7 +59,7 @@ Before mutating any cluster or cloud environment, use read-only commands (`kubec
 - **Confirmation Gate (Billable & Destructive Actions):** Present the planned commands and obtain user confirmation before:
   1. Creating, resizing, or deleting cloud clusters or node pools (`infra-provision-cluster`).
   2. Installing, upgrading, or uninstalling cluster-wide CRDs, webhooks, or Helm releases (`infra-deploy-stack`, `infra-configure-crs`).
-  3. Cancelling active Slurm jobs, draining nodes, or deleting Kubernetes resources (`ops-cleanup-state`).
+  3. Cancelling active Slurm jobs, draining nodes, deleting Kubernetes resources (`ops-cleanup-state`), or mutating admin/tenant policies (`ClusterQueue`, `ResourceQuota`, `LimitRange`, Slurm partition limits/states) and other tenants' workloads.
 - **Pod Termination Safety:** Do not delete dynamic `slurmd` pods with `--force --grace-period=0`. Force-deletion bypasses container `PreStop` hooks (`scontrol update ... state=DOWN && scontrol delete`) and leaves stale nodes in `slurmctld` that fail subsequent jobs with `BadConstraints`.
 - **Non-Root Verification:** `kubectl exec` into `deploy/slurm-login-slinky` runs as `root` (UID 0), and `job_submit.lua` bypasses `slurm_job_modify` checks for `root` and `slurm`. Test Slurm submissions and modifications as a non-root user (`runuser -u <user> -- ...`).
 
